@@ -1,2 +1,20 @@
-# Love-Animation
-A beautiful and responsive Love Animation project built with HTML, CSS, and JavaScript. Features smooth heart animations, romantic visual effects, interactive elements, and clean, well-structured code. Perfect for Valentine's Day, special occasions, creative web projects, or learning modern CSS and JavaScript animations.
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
+
+# Run and deploy your AI Studio app
+
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/5e65c4f0-47e0-46ec-8e48-37ba02a98360
+
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

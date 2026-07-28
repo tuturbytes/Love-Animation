@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Romantic Heart & Text Animation</title>
+    <!-- Importing Inter, Space Grotesk, and Dancing Script cursive fonts for beautiful visual pairings -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Space+Grotesk:wght@500;700;900&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #050206;
+        overflow: hidden;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      /* Standalone fallback canvas */
+      #standaloneCanvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: #050206;
+        z-index: 99990;
+        display: none;
+      }
+
+      /* Tap to Play Interactive Landing Overlay */
+      #fallbackOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(circle at center, #0d040f 0%, #050206 100%);
+        z-index: 99995;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        cursor: pointer;
+        user-select: none;
+        text-align: center;
+        transition: opacity 0.8s ease;
+      }
+
+      #fallbackOverlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .pulse-heart {
+        font-size: 80px;
+        color: #f43f5e;
+        filter: drop-shadow(0 0 20px rgba(244, 63, 94, 0.65));
+        animation: heartPulse 1.4s infinite ease-in-out;
+        margin-bottom: 24px;
+      }
+
+      .play-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        font-size: 28px;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+      }
+
+      .play-subtitle {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.45);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+
+      @keyframes heartPulse {
+        0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.6)); }
+        50% { transform: scale(1.15); filter: drop-shadow(0 0 30px rgba(244, 63, 94, 0.95)); }
+        100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.6)); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- React Entry Container -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Standalone Falling Hearts & Text Video Fallback (Runs on Live Server / Go Live natively!) -->
+    <canvas id="standaloneCanvas"></canvas>
+    <div id="fallbackOverlay">
+      <div class="pulse-heart">❤️</div>
+      <div class="play-title">Tap to Play Video</div>
+      <div class="play-subtitle">Experience the Magic</div>
+    </div>
+
+    <script>
+      // Standalone applet initialization wrapper
+      function initStandaloneApp() {
+        console.log("Initializing Standalone HTML5 Fallback Animation for Go Live...");
+        
+        const canvas = document.getElementById('standaloneCanvas');
+        const overlay = document.getElementById('fallbackOverlay');
+        
+        // Show fallback UI components
+        canvas.style.display = 'block';
+        overlay.style.display = 'flex';
+
+        // Set high-DPI canvas bounds
+        const ctx = canvas.getContext('2d');
+        function resize() {
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = window.innerWidth * dpr;
+          canvas.height = window.innerHeight * dpr;
+          ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Standard timeline setup matching original config
+        const slides = [
+          { text: '3', duration: 1.0 },
+          { text: '2', duration: 1.0 },
+          { text: '1', duration: 1.0 },
+          { text: 'You', duration: 1.8 },
+          { text: 'Are', duration: 1.8 },
+          { text: 'My', duration: 1.8 },
+          { text: 'Love', duration: 2.4 },
+          {text: 'My Love',duration: 2.2}      ];
+        const heartText = 'I Love ❤️ You Manahil ';
+        const heartSubText = 'Always & Forever';
+
+        let currentSlideIdx = -1;
+        let elapsedInSlide = 0;
+        let globalTime = 0;
+        let lastFrameTime = performance.now();
+        let isPlaying = false;
+        let lastActiveSlide = -1;
+
+        // Sound synthesizer implementation using Web Audio API
+        let audioCtx = null;
+        function initAudio() {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+        }
+
+        function playTick(freq = 600, duration = 0.1) {
+          try {
+            initAudio();
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + duration);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+          } catch (e) {
+            console.warn("Audio blocked:", e);
+          }
+        }
+
+        function playHeartbeat() {
+          try {
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            [0, 0.18].forEach((delay) => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(65, now + delay);
+              osc.frequency.exponentialRampToValueAtTime(20, now + delay + 0.15);
+              gain.gain.setValueAtTime(0.3, now + delay);
+              gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.15);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(now + delay);
+              osc.stop(now + delay + 0.15);
+            });
+          } catch (e) {
+            console.warn("Audio blocked:", e);
+          }
+        }
+
+        function playTransitionChord() {
+          try {
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const notes = [261.63, 329.63, 392.00, 523.25]; // C major chimes
+            notes.forEach((freq, idx) => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+              gain.gain.setValueAtTime(0.08, now + idx * 0.04);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 1.2);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(now + idx * 0.04);
+              osc.stop(now + idx * 0.04 + 1.2);
+            });
+          } catch (e) {
+            console.warn("Audio blocked:", e);
+          }
+        }
+
+        function playSparkle() {
+          try {
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const freq = 800 + Math.random() * 600; // sweet high notes
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq / 2, now + 0.3);
+
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.3);
+          } catch (e) {
+            console.warn("Audio Context blocked or failed:", e);
+          }
+        }
+
+        // Particle configuration & state variables
+        const particleCount = 1300;
+        const particles = [];
+        const clickHearts = [];
+        const rosePetals = [];
+        const offscreenCanvas = document.createElement('canvas');
+
+        // Draw a crisp heart at coordinates helper
+        function drawTinyHeart(ctx, x, y, size) {
+          ctx.beginPath();
+          const d = size * 1.35;
+          ctx.moveTo(x, y + d * 0.3);
+          ctx.bezierCurveTo(x, y - d * 0.45, x - d * 0.95, y - d * 0.45, x - d * 0.95, y + d * 0.2);
+          ctx.bezierCurveTo(x - d * 0.95, y + d * 0.7, x - d * 0.45, y + d * 1.05, x, y + d * 1.4);
+          ctx.bezierCurveTo(x + d * 0.45, y + d * 1.05, x + d * 0.95, y + d * 0.7, x + d * 0.95, y + d * 0.2);
+          ctx.bezierCurveTo(x + d * 0.95, y - d * 0.45, x, y - d * 0.45, x, y + d * 0.3);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Initialize particles with a portion starting on-screen to be revealed seamlessly by the scanline
+        for (let i = 0; i < particleCount; i++) {
+          const px = Math.random() * window.innerWidth;
+          const py = Math.random() * window.innerHeight * 1.5 - window.innerHeight * 0.5;
+          particles.push({
+            x: px,
+            y: py,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: 0.5 + Math.random() * 0.8, // gentle slow drift matching React configuration
+            targetX: px,
+            targetY: py,
+            originalTargetX: px,
+            originalTargetY: py,
+            size: Math.random() * 1.8 + 1,
+            baseSize: Math.random() * 1.8 + 1,
+            alpha: 0.1 + Math.random() * 0.8,
+            color: '#ffffff',
+            isSpare: true,
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.2 + Math.random() * 0.8
+          });
+        }
+
+        // Generate parametric heart points - adaptively scale up for longer text so it fits beautifully
+        function sampleHeartPoints(w, h, count, heartText = "I Love ❤️ You") {
+          const pts = [];
+          const centerX = w / 2;
+          const centerY = h / 2 - h * 0.05;
+          const textLen = heartText ? heartText.length : 12;
+          let scale = Math.min(w, h) * 0.016;
+          if (textLen > 12) {
+            scale = Math.min(w, h) * (0.016 + Math.min(0.008, (textLen - 12) * 0.0011));
+          }
+
+          for (let layer = 0; layer < 2; layer++) {
+            const currentScale = scale - layer * 0.6;
+            for (let i = 0; i < count / 2; i++) {
+              const t = (i / (count / 2)) * Math.PI * 2;
+              const xVal = 16 * Math.pow(Math.sin(t), 3);
+              const yVal = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+              pts.push({
+                x: centerX + xVal * currentScale,
+                y: centerY + yVal * currentScale
+              });
+            }
+          }
+          return pts;
+        }
+
+        // Rasterize text text points
+        function sampleTextPoints(text, w, h) {
+          const upperText = text.toUpperCase();
+          offscreenCanvas.width = w;
+          offscreenCanvas.height = h;
+          const oCtx = offscreenCanvas.getContext('2d');
+          if (!oCtx) return [];
+
+          oCtx.fillStyle = '#000000';
+          oCtx.fillRect(0, 0, w, h);
+
+          let fontSize = Math.floor(w * 0.18);
+          if (upperText.length > 4) {
+            fontSize = Math.floor(w * (0.8 / upperText.length));
+          }
+          fontSize = Math.min(fontSize, Math.floor(h * 0.5));
+          fontSize = Math.max(fontSize, 28);
+
+          oCtx.font = `900 ${fontSize}px "Space Grotesk", sans-serif`;
+          oCtx.textAlign = 'center';
+          oCtx.textBaseline = 'middle';
+          oCtx.fillStyle = '#ffffff';
+          oCtx.fillText(upperText, w / 2, h / 2);
+
+          const imgData = oCtx.getImageData(0, 0, w, h);
+          const data = imgData.data;
+          const pts = [];
+          const step = Math.max(2, Math.floor((w * h) / 100000));
+
+          for (let y = 0; y < h; y += step) {
+            for (let x = 0; x < w; x += step) {
+              const idx = (y * w + x) * 4;
+              if (data[idx] > 128) {
+                pts.push({
+                  x: x + (Math.random() - 0.5) * 1.5,
+                  y: y + (Math.random() - 0.5) * 1.5
+                });
+              }
+            }
+          }
+          return pts;
+        }
+
+        function triggerSlideTransition(slideIdx) {
+          let targets = [];
+          const isHeartSlide = slideIdx === slides.length;
+
+          if (slideIdx === -1) {
+            // Entrance
+          } else if (isHeartSlide) {
+            targets = sampleHeartPoints(window.innerWidth, window.innerHeight, Math.floor(particleCount * 0.65), heartText);
+          } else if (slides[slideIdx]) {
+            targets = sampleTextPoints(slides[slideIdx].text, window.innerWidth, window.innerHeight);
+          }
+
+          // Synthesizer trigger sounds
+          if (isPlaying && lastActiveSlide !== slideIdx) {
+            lastActiveSlide = slideIdx;
+            if (slideIdx === -1) {
+              playTick(500, 0.1);
+            } else if (isHeartSlide) {
+              playTransitionChord();
+              playHeartbeat();
+            } else {
+              const currentSlide = slides[slideIdx];
+              const isNumeric = currentSlide && !isNaN(Number(currentSlide.text));
+              if (isNumeric) {
+                playTick(600 + slideIdx * 100, 0.12);
+              } else {
+                playTransitionChord();
+              }
+            }
+          }
+
+          const targetCount = targets.length;
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            if (i < targetCount) {
+              p.targetX = targets[i].x;
+              p.targetY = targets[i].y;
+              p.originalTargetX = targets[i].x;
+              p.originalTargetY = targets[i].y;
+              p.isSpare = false;
+              p.color = '#ffffff'; // countdown and text particles are pure white
+            } else {
+              p.isSpare = true;
+              p.vx = (Math.random() - 0.5) * 0.3;
+              p.vy = 0.5 + Math.random() * 0.8; // gentle background drift
+              p.targetX = p.x;
+              p.targetY = p.y;
+              p.color = '#f43f5e';
+            }
+          }
+        }
+
+        // Periodic heartbeat timer for centerpiece
+        let lastHeartbeatTrigger = 0;
+
+        // Core animation rendering loop
+        function tick(now) {
+          if (!isPlaying) {
+            lastFrameTime = now;
+            requestAnimationFrame(tick);
+            return;
+          }
+
+          const delta = Math.min(1.0, (now - lastFrameTime) / 1000);
+          lastFrameTime = now;
+
+          globalTime += delta;
+          elapsedInSlide += delta;
+
+          // Process timeline
+          let slideDuration = 2.0; // fallback duration
+          if (currentSlideIdx >= 0 && currentSlideIdx < slides.length) {
+            slideDuration = slides[currentSlideIdx].duration;
+          } else if (currentSlideIdx === slides.length) {
+            slideDuration = 999999; // infinite centerpiece
+          }
+
+          if (elapsedInSlide >= slideDuration && currentSlideIdx < slides.length) {
+            currentSlideIdx++;
+            elapsedInSlide = 0;
+            triggerSlideTransition(currentSlideIdx);
+          }
+
+          const isEntrance = currentSlideIdx === -1;
+          const isHeartSlide = currentSlideIdx === slides.length;
+
+          // Clean canvas trail
+          ctx.shadowBlur = 0;
+          ctx.shadowColor = 'transparent';
+          ctx.fillStyle = '#0502061e'; // trailing path effect
+          ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+          // Pulsing background radial glow (Aurora behind centerpiece)
+          if (isHeartSlide) {
+            ctx.save();
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2 - window.innerHeight * 0.05;
+            const glowRadius = Math.min(window.innerWidth, window.innerHeight) * (0.35 + 0.05 * Math.sin((globalTime) * 5));
+            const bgGlow = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, glowRadius);
+            bgGlow.addColorStop(0, 'rgba(244, 63, 94, 0.16)'); // romantic pink aura
+            bgGlow.addColorStop(0.5, 'rgba(236, 72, 153, 0.06)'); // pinkish violet dusk
+            bgGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = bgGlow;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+
+          // Ambient drifting rose petals
+          if (rosePetals.length === 0) {
+            for (let i = 0; i < 28; i++) {
+              rosePetals.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                size: 4 + Math.random() * 8,
+                angle: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 0.015,
+                speedY: 0.4 + Math.random() * 0.7,
+                speedX: -0.3 + Math.random() * 0.5,
+                opacity: 0.15 + Math.random() * 0.4
+              });
+            }
+          }
+
+          ctx.save();
+          for (let i = 0; i < rosePetals.length; i++) {
+            const p = rosePetals[i];
+            p.y += p.speedY;
+            p.x += p.speedX;
+            p.angle += p.spin;
+            p.x += Math.sin((globalTime) * 0.8 + i) * 0.22;
+
+            if (p.y > window.innerHeight + 20) {
+              p.y = -20;
+              p.x = Math.random() * window.innerWidth;
+            }
+            if (p.x < -20) p.x = window.innerWidth + 20;
+            if (p.x > window.innerWidth + 20) p.x = -20;
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.angle);
+            ctx.fillStyle = `rgba(244, 63, 94, ${p.opacity})`;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(244, 63, 94, 0.6)';
+            drawTinyHeart(ctx, 0, 0, p.size);
+            ctx.restore();
+          }
+          ctx.restore();
+
+          // Draw neon love scanline during entrance
+          if (isEntrance) {
+            const scanProgress = Math.min(1.0, elapsedInSlide / 2.0);
+            const scanY = scanProgress * window.innerHeight;
+
+            ctx.save();
+            const grad = ctx.createLinearGradient(0, scanY - 30, 0, scanY + 30);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(0.5, 'rgba(244, 63, 94, 0.28)');
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, scanY - 30, window.innerWidth, 60);
+
+            // Row of shining scanline hearts
+            const spacing = 18;
+            const hCount = Math.floor(window.innerWidth / spacing) + 1;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = '#f43f5e';
+            ctx.fillStyle = '#ffffff';
+            for (let h = 0; h < hCount; h++) {
+              const hx = h * spacing + Math.sin(globalTime * 6 + h) * 3;
+              const hy = scanY + Math.cos(globalTime * 4 + h) * 2;
+              drawTinyHeart(ctx, hx, hy, 4.5);
+            }
+            ctx.restore();
+
+            if (elapsedInSlide >= 2.0) {
+              currentSlideIdx = 0;
+              elapsedInSlide = 0;
+              triggerSlideTransition(0);
+            }
+          }
+
+          // Centerpiece heartbeat pulses
+          let textPulse = 1.0;
+          let heartPulse = 1.0;
+          if (isHeartSlide) {
+            const beatFreq = 1.0; // 1 beat per sec
+            const beatCycle = (globalTime * beatFreq) % 1.0;
+            if (beatCycle < 0.15) {
+              heartPulse = 1.0 + Math.sin((beatCycle / 0.15) * Math.PI) * 0.12;
+              textPulse = 1.0 + Math.sin((beatCycle / 0.15) * Math.PI) * 0.06;
+            } else if (beatCycle > 0.18 && beatCycle < 0.33) {
+              const subCycle = (beatCycle - 0.18) / 0.15;
+              heartPulse = 1.0 + Math.sin(subCycle * Math.PI) * 0.08;
+              textPulse = 1.0 + Math.sin(subCycle * Math.PI) * 0.04;
+            }
+
+            // Fire procedural heart audio thump sync
+            if (now - lastHeartbeatTrigger > 1000) {
+              playHeartbeat();
+              lastHeartbeatTrigger = now;
+            }
+          }
+
+          // Set active shadow glow
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = isHeartSlide ? 'rgba(255, 30, 130, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+
+          // Update & Render particles (with clipping mask during entrance phase to reveal falling hearts organically)
+          ctx.save();
+          if (isEntrance) {
+            const scanProgress = Math.min(1.0, elapsedInSlide / 2.0);
+            const scanY = scanProgress * window.innerHeight;
+            ctx.beginPath();
+            ctx.rect(0, 0, window.innerWidth, scanY);
+            ctx.clip();
+          }
+
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+
+            if (p.isSpare) {
+              // Drift/sway rain physics
+              p.angle += 0.015 * p.speed;
+              p.y += p.vy;
+              p.x += p.vx;
+              p.x += Math.sin(p.angle + globalTime * 0.6) * 0.12;
+
+              if (p.y > window.innerHeight) {
+                p.y = -20;
+                p.x = Math.random() * window.innerWidth;
+                p.vy = 0.5 + Math.random() * 0.8;
+                p.vx = (Math.random() - 0.5) * 0.3;
+              }
+              if (p.x < 0) p.x = window.innerWidth;
+              if (p.x > window.innerWidth) p.x = 0;
+            } else {
+              // Morph towards active layout coordinates
+              let targetX = p.targetX;
+              let targetY = p.targetY;
+
+              if (isHeartSlide) {
+                const centerXP = window.innerWidth / 2;
+                const dirtyYP = window.innerHeight / 2 - window.innerHeight * 0.05;
+                const dx = p.originalTargetX - centerXP;
+                const dy = p.originalTargetY - dirtyYP;
+                targetX = centerXP + dx * heartPulse;
+                targetY = dirtyYP + dy * heartPulse;
+              }
+
+              p.x += (targetX - p.x) * 0.12;
+              p.y += (targetY - p.y) * 0.12;
+            }
+
+            // Render matching styling filters
+            if (p.isSpare) {
+              // low-density falling rose heart rain
+              if (i % 10 === 0) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = 'rgba(244, 63, 94, 0.5)';
+                drawTinyHeart(ctx, p.x, p.y, p.size * 0.85);
+                ctx.restore();
+              }
+            } else {
+              // Active white lettering/heart particles
+              ctx.fillStyle = p.color;
+              drawTinyHeart(ctx, p.x, p.y, p.size * 1.15);
+
+              // Occasional beautiful fairy-dust/stardust sparkles on text particles
+              if (Math.random() < 0.004) {
+                ctx.save();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.0;
+                ctx.globalAlpha = 0.95;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(p.x - 5, p.y);
+                ctx.lineTo(p.x + 5, p.y);
+                ctx.moveTo(p.x, p.y - 5);
+                ctx.lineTo(p.x, p.y + 5);
+                ctx.stroke();
+                ctx.restore();
+              }
+            }
+          }
+          ctx.restore();
+
+          // Update and Draw interactive clicked hearts
+          for (let i = clickHearts.length - 1; i >= 0; i--) {
+            const h = clickHearts[i];
+            h.life++;
+            h.x += h.vx;
+            h.y += h.vy;
+            // Gentle gravity and friction
+            h.vy += 0.08;
+            h.vx *= 0.98;
+            h.alpha = Math.max(0, 1.0 - (h.life / h.maxLife));
+            h.size = Math.max(0.1, h.size * 0.98);
+
+            if (h.life >= h.maxLife || h.size <= 0.2) {
+              clickHearts.splice(i, 1);
+              continue;
+            }
+
+            ctx.save();
+            ctx.fillStyle = h.color;
+            ctx.globalAlpha = h.alpha;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = h.color;
+            drawTinyHeart(ctx, h.x, h.y, h.size);
+            ctx.restore();
+          }
+
+          // Centerpiece message letters overlay inside the solid heart centerpiece
+          if (isHeartSlide) {
+            ctx.save();
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const cx = window.innerWidth / 2;
+            const cy = window.innerHeight / 2 - window.innerHeight * 0.05;
+
+            // Large Title - adaptively scale down font size for longer messages
+            const textLen = heartText.length;
+            let fontSizeMultiplier = 1.0;
+            if (textLen > 12) {
+              fontSizeMultiplier = Math.max(0.62, 12 / textLen);
+            }
+            const sizeMain = Math.max(22, Math.floor(window.innerWidth * 0.038 * fontSizeMultiplier) * textPulse);
+            ctx.font = `900 ${sizeMain}px "Space Grotesk", sans-serif`;
+            ctx.fillText(heartText, cx, cy);
+
+            // Subtitle
+            const sizeSub = Math.max(11, Math.floor(window.innerWidth * 0.02 * fontSizeMultiplier) * textPulse);
+            ctx.font = `500 ${sizeSub}px "Inter", sans-serif`;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(heartSubText, cx, cy + sizeMain * 1.45);
+            ctx.restore();
+          }
+
+          requestAnimationFrame(tick);
+        }
+
+        // Tap to overlay click event starting the play state
+        overlay.addEventListener('click', () => {
+          initAudio();
+          overlay.classList.add('fade-out');
+          isPlaying = true;
+          currentSlideIdx = -1;
+          elapsedInSlide = 0;
+          globalTime = 0;
+          triggerSlideTransition(-1);
+          
+          setTimeout(() => {
+            overlay.style.display = 'none';
+          }, 800);
+        });
+
+        // Add interactive touch/click listeners to the rendering canvas
+        canvas.addEventListener('click', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          playSparkle();
+
+          const heartColors = ['#ff2a6d', '#ff007f', '#f43f5e', '#ec4899', '#f472b6', '#ffffff'];
+          for (let i = 0; i < 15; i++) {
+            const angle = Math.PI * 1.25 + Math.random() * Math.PI * 0.5;
+            const speed = 1.2 + Math.random() * 3.5;
+            clickHearts.push({
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              size: 4 + Math.random() * 5,
+              alpha: 1.0,
+              color: heartColors[Math.floor(Math.random() * heartColors.length)],
+              life: 0,
+              maxLife: 60 + Math.floor(Math.random() * 40)
+            });
+          }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 0) return;
+          const rect = canvas.getBoundingClientRect();
+          const touch = e.touches[0];
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+
+          playSparkle();
+
+          const heartColors = ['#ff2a6d', '#ff007f', '#f43f5e', '#ec4899', '#f472b6', '#ffffff'];
+          for (let i = 0; i < 15; i++) {
+            const angle = Math.PI * 1.25 + Math.random() * Math.PI * 0.5;
+            const speed = 1.2 + Math.random() * 3.5;
+            clickHearts.push({
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              size: 4 + Math.random() * 5,
+              alpha: 1.0,
+              color: heartColors[Math.floor(Math.random() * heartColors.length)],
+              life: 0,
+              maxLife: 60 + Math.floor(Math.random() * 40)
+            });
+          }
+        });
+
+        // Begin cycle tick
+        requestAnimationFrame(tick);
+      }
+
+      // Check to see if we should trigger standalone fallback
+      setTimeout(() => {
+        if (window.reactActive || window.location.port === "3000" || window.location.hostname.includes("run.app")) {
+          console.log("React compilation is active. Disabling raw HTML5 fallback.");
+          return;
+        }
+        initStandaloneApp();
+      }, 500);
+    </script>
+  </body>
+</html>

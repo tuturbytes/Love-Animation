@@ -1,0 +1,6 @@
+{
+  "name": "Love Video Generator",
+  "description": "An interactive web application to create, customize, and record beautiful animated particle videos with romantic text, custom color themes, matrix background rain, and procedural synth sound effects.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
